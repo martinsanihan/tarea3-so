@@ -7,6 +7,7 @@
 #include <signal.h>
 #include <math.h>
 
+// definición de colores para la terminal
 #define COLOR_ROJO    "\x1b[31m"
 #define COLOR_VERDE   "\x1b[32m"
 #define COLOR_AMARILLO "\x1b[33m"
@@ -17,19 +18,19 @@
 
 #define RANGO_A 512
 #define RANGO_B 1024
-#define MAX_PROCS 999999
+#define MAX_PROCS 10000
 
-// Gestión de procesos (lista simple)
 int activeProcs[MAX_PROCS];
 int activeCount = 0;
 
-void add_proc(int id) {
+void anadir_proceso(int id) {
     if (activeCount < MAX_PROCS) {
-        activeProcs[activeCount++] = id;
+        activeProcs[activeCount] = id;
+        activeCount++;
     }
 }
 
-void remove_proc_by_index(int index) {
+void fin_proceso(int index) {
     activeProcs[index] = activeProcs[activeCount - 1];
     activeCount--;
 }
@@ -37,136 +38,140 @@ void remove_proc_by_index(int index) {
 int main() {
     srand(time(NULL));
 
-    float memFisica, a = 1.5, b = 4.5;
+    float a = 1.5, b = 4.5;
     float randomCeroUno = (float)rand() / RAND_MAX;
     float random = (a + randomCeroUno * (b - a));
 
-    // Interacción más natural al inicio
-    printf("Hola. Para empezar, necesito saber cuánta RAM (física) vamos a simular (en MB): ");
-    scanf("%f", &memFisica);
-    int intMemFisica = (int)memFisica;
+    int memFisicaInput;
+    printf("\n");
+    printf("Ingresar cantidad de memoria RAM (en MB): ");
+    scanf("%d", &memFisicaInput);
     
-    float memVirtual = (random * memFisica);
+    int pageSize;
+    printf("Ingresar tamaño de páginas (en MB): ");
+    scanf("%d", &pageSize);
+    printf("\n");
+
+    // CÁLCULOS CORREGIDOS (Ajuste a enteros y páginas)
+    // 1. Calculamos la memoria virtual bruta
+    float memVirtualBruta = random * (float)memFisicaInput;
+
+    // 2. Calculamos cuántas páginas totales caben (Virtual Total / Pagina)
+    int cantPagsTotal = (int)memVirtualBruta / pageSize;
+
+    // 3. Calculamos cuántas páginas son de RAM (RAM / Pagina)
+    int cantFramesRAM = memFisicaInput / pageSize;
+
+    // 4. Calculamos la memoria REAL alineada (sin decimales sueltos)
+    int memRealTotal = cantPagsTotal * pageSize;
+    int memRealRAM = cantFramesRAM * pageSize;
+    int memRealSwap = memRealTotal - memRealRAM;
+
+    printf(COLOR_CIAN "---------------------------------\n");
+    printf("Memoria Física (RAM): %d MB\n", memRealRAM);
+    printf("Swap: %d MB\n", memRealSwap);
+    printf("Páginas: %d\n", cantPagsTotal);
+    printf("---------------------------------\n\n" COLOR_RESET);
+
+    // Array con el tamaño exacto de páginas totales
+    int pages[cantPagsTotal];
+    for(int k = 0; k < cantPagsTotal; k++) pages[k] = 0; 
     
-    float pageSize;
-    printf("Perfecto. ¿Y de qué tamaño serán las páginas? (en MB): ");
-    scanf("%f", &pageSize);
-    int intPageSize = (int)pageSize;
-
-    // Cálculos internos
-    int intCantPags = (int)memVirtual / intPageSize; 
-    int memRealUtil = intCantPags * intPageSize;
-    int framesRamLimit = intMemFisica / intPageSize; 
-
-    // Resumen inicial estilo "charla técnica"
-    printf(COLOR_CIAN "\nVale, ya configuré todo. Aquí están los datos:\n");
-    printf("Tenemos %d MB de memoria útil en total.\n", memRealUtil);
-    printf("De eso, %d MB son RAM real y el resto (%d MB) se va al Swap.\n", intMemFisica, memRealUtil - intMemFisica);
-    printf("En total nos salieron %d páginas (o frames).\n", intCantPags);
-    printf("Los primeros %d frames son rápidos (RAM), los demás son lentos (Swap).\n", framesRamLimit);
-    printf("Empezamos la simulación...\n\n" COLOR_RESET);
-
-    int pages[intCantPags];
-    for(int k = 0; k < intCantPags; k++) pages[k] = 0; 
-
-    int memDisponible = intMemFisica; 
-    int swapDisponible = memRealUtil - intMemFisica;
+    // Inicializamos contadores con la memoria ALINEADA
+    int memDisponible = memRealRAM; 
+    int swapDisponible = memRealSwap;
+    
     if (swapDisponible < 0) swapDisponible = 0;
 
     int procId = 1; 
 
     for(int t = 0; true; t++) {
         
-        // Marcador de tiempo simple
-        if (t % 2 == 0 || (t >= 30 && t % 5 == 0)) {
-            printf(COLOR_AZUL "\n--- Ya van %d segundos ---\n" COLOR_RESET, t);
-        }
+        printf(COLOR_AZUL "%d secs...\n" COLOR_RESET, t);
 
-        // --- 1. CREACIÓN DE PROCESOS ---
-        if(t % 2 == 0) {
+        if(t % 2 == 0 && t > 0) {
             int newPsize = rand() % (RANGO_B - RANGO_A + 1) + RANGO_A;
-            int pagesNeeded = (newPsize + intPageSize - 1) / intPageSize;
-            int memOcupadaReal = pagesNeeded * intPageSize;
+            
+            // Calculamos cuántas páginas ocupa este proceso (techo)
+            int procPages = (newPsize + pageSize - 1) / pageSize;
+            // El espacio que realmente ocupará en memoria (múltiplo de página)
+            int memNecesaria = procPages * pageSize;
 
-            printf(COLOR_VERDE "Voy a intentar crear el Proceso %d.\n" COLOR_RESET, procId);
-            printf("Pesa %d MB, así que necesito apartar %d páginas.\n", newPsize, pagesNeeded);
+            printf(COLOR_VERDE "Creando proceso %d\n" COLOR_RESET, procId);
+            printf("Se necesitan %d páginas para el proceso\n", procPages);
 
-            if (memDisponible < memOcupadaReal) {
-                if (swapDisponible + memDisponible < memOcupadaReal) {
-                    // Mensaje de error más humano
-                    printf(COLOR_ROJO "Uff... malas noticias. No hay espacio en ningún lado.\n");
-                    printf("Se llenó la RAM y también el Swap. No cabe nada más.\n");
-                    printf("La simulación terminó exitosamente (porque colapsó la memoria).\n" COLOR_RESET);
+            // Verificamos usando memNecesaria (espacio real)
+            if (memDisponible < memNecesaria) {
+                if (swapDisponible + memDisponible < memNecesaria) {
+                    printf(COLOR_ROJO "No queda espacio disponible. Terminando ejecución...\n" COLOR_RESET);
                     return 0; 
                 } else {
-                    // Advertencia casual
-                    printf(COLOR_AMARILLO "Ojo: La RAM está llena. Voy a tener que tirar esto al Swap.\n" COLOR_RESET);
-                    int faltante = memOcupadaReal - memDisponible;
+                    printf(COLOR_AMARILLO "Memoria RAM llena. Utilizando swap.\n" COLOR_RESET);
+                    int faltante = memNecesaria - memDisponible;
+                    
+                    // Vaciamos RAM y restamos el remanente al Swap
                     memDisponible = 0;
                     swapDisponible -= faltante;
                 }
             } else {
-                printf("Hay espacio en RAM, así que entra directo.\n");
-                memDisponible -= memOcupadaReal;
+                printf("Proceso cargado en la RAM.\n");
+                memDisponible -= memNecesaria;
             }
 
             int asignadas = 0;
-            printf("Listo, asigné las páginas en los índices: ");
-            for(int j = 0; j < intCantPags; j++) {
+            printf("Páginas asignadas: ");
+            for(int j = 0; j < cantPagsTotal; j++) {
                 if(pages[j] == 0) { 
                     pages[j] = procId;
                     printf("%d ", j);
                     asignadas++;
-                    if(asignadas == pagesNeeded) break; 
+                    if(asignadas == procPages) break; 
                 }
             }
             printf("\n");
             
-            add_proc(procId);
+            anadir_proceso(procId);
             procId++;
         }
 
-        // --- 2. EVENTOS ALEATORIOS (KILL & PAGE FAULT) ---
         if (t >= 30 && t % 5 == 0) {
             
-            // A) Matar proceso
             if (activeCount > 0) {
                 int victimIndex = rand() % activeCount;
                 int victimId = activeProcs[victimIndex];
                 
-                printf(COLOR_MAGENTA "Le llegó la hora al Proceso %d. Lo estoy finalizando y liberando su memoria...\n" COLOR_RESET, victimId);
+                printf(COLOR_MAGENTA "Finalizando proceso %d...\n" COLOR_RESET, victimId);
                 
-                for(int j = 0; j < intCantPags; j++) {
+                for(int j = 0; j < cantPagsTotal; j++) {
                     if (pages[j] == victimId) {
                         pages[j] = 0; 
-                        if (j < framesRamLimit) memDisponible += intPageSize;
-                        else swapDisponible += intPageSize;
+                        // Devolvemos memoria al contador correcto
+                        if (j < cantFramesRAM) memDisponible += pageSize;
+                        else swapDisponible += pageSize;
                     }
                 }
-                remove_proc_by_index(victimIndex);
+                fin_proceso(victimIndex);
             }
 
-            // B) Acceso a memoria (Page Fault)
-            int randomFrameIndex = rand() % intCantPags;
+            int randomFrameIndex = rand() % cantPagsTotal;
             int ownerId = pages[randomFrameIndex];
 
-            printf("Simulando acceso a memoria (índice %d)... ", randomFrameIndex);
+            printf("Acceso a memoria (índice %d)... ", randomFrameIndex);
 
             if (ownerId == 0) {
-                printf("Nada, ese espacio está vacío.\n");
+                printf("Espacio vacío.\n");
             } else {
-                if (randomFrameIndex < framesRamLimit) {
-                    printf(COLOR_VERDE "¡Todo bien! Está en RAM (Hit).\n" COLOR_RESET);
+                if (randomFrameIndex < cantFramesRAM) {
+                    printf(COLOR_VERDE "El proceso ya está en RAM.\n" COLOR_RESET);
                 } else {
-                    // Page Fault narrado
-                    printf(COLOR_ROJO "¡Alerta! Page Fault.\n" COLOR_RESET);
-                    printf("Esa página estaba guardada en el Swap (disco).\n");
-                    printf(COLOR_AMARILLO "Trayéndola a RAM... (Haciendo un canje aleatorio)\n" COLOR_RESET);
+                    printf(COLOR_ROJO "Fallo de Página.\n" COLOR_RESET);
+                    printf("Accediendo al disco (swapping)\n");
+                    printf(COLOR_AMARILLO "Política de reemplazo: Aleatorio.\n" COLOR_RESET);
 
-                    int frameVictimaRAM = rand() % framesRamLimit;
-                    printf("Saqué la página que estaba en el índice %d (Proceso %d) y la mandé al Swap para hacer espacio.\n", frameVictimaRAM, pages[frameVictimaRAM]);
+                    // Swap solo ocurre con páginas dentro del rango de RAM
+                    int frameVictimaRAM = rand() % cantFramesRAM;
+                    printf("Página que estaba en el índice %d (Proceso %d) enviada al Swap.\n", frameVictimaRAM, pages[frameVictimaRAM]);
 
-                    // Intercambio
                     int temp = pages[frameVictimaRAM];
                     pages[frameVictimaRAM] = pages[randomFrameIndex]; 
                     pages[randomFrameIndex] = temp; 
