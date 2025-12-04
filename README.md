@@ -1,19 +1,16 @@
-# Simulador de Gestión de Memoria (Paginación)
+# Tarea 3 Sistemas Operativos: Paginación
 
-Este proyecto es una simulación en C de cómo un Sistema Operativo gestiona la memoria utilizando la técnica de **paginación**. El programa simula la asignación de memoria RAM, el uso de memoria secundaria (Swap), y eventos como fallos de página (Page Faults).
+En esta tarea se pidió aplicar un gestor de memoria utilizando la paginación. Se simula un dispositivo con su memoria física (RAM), memoria virtual, tabla de páginas, y eventos como finalización de procesos y accesos a memoria.
 
-## 📋 Descripción General
+## Descripción
 
-El programa actúa como un administrador de memoria que recibe procesos generados aleatoriamente. Su objetivo es asignarles espacio, priorizando siempre la memoria física (RAM). Si la RAM se llena, el sistema utiliza la memoria Swap (intercambio). Si ambas memorias se llenan, la simulación termina exitosamente.
+Cada 2 segundos se crean procesos (a nivel lógico) de tamaño aleatorio, en un rango predefinido, a los cuales se les asigna las páginas en memoria, cada iteración se verifica que aun quede memoria disponible. Luego de 30 segundos de ejecución, pueden suceder eventos, un acceso a memoria y la finalización de otro proceso, teniendo como consecuencia fallos de página y liberación de memoria. La ejecución del el programa termina si ya no queda memoria disponible, ni principal ni secundaria.
 
-Además, el simulador incluye eventos aleatorios como la finalización de procesos y el acceso a direcciones de memoria virtual para demostrar el funcionamiento del **Swapping**.
+## Ejecución
 
-## 🚀 Instrucciones de Ejecución
-
-El código está diseñado para compilarse y ejecutarse en un entorno Linux/Unix.
-
-### 1. Compilación
-Utiliza `gcc` para compilar el código fuente. Se recomienda enlazar la librería matemática (`-lm`) por si el compilador lo requiere:
+Para ejecutar el código se debe compilar en un entorno Unix. En el directorio donde está el código, se debe compilar y ejecutar con los siguientes comandos:
 
 ```bash
-gcc tarea3_human.c -o sim_memoria -lm
+gcc tarea3.c -o t3
+./t3
+```

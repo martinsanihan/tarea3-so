@@ -7,7 +7,6 @@
 #include <signal.h>
 #include <math.h>
 
-// Colores para que se vea bonito, pero sin exagerar
 #define COLOR_ROJO    "\x1b[31m"
 #define COLOR_VERDE   "\x1b[32m"
 #define COLOR_AMARILLO "\x1b[33m"
@@ -18,7 +17,7 @@
 
 #define RANGO_A 512
 #define RANGO_B 1024
-#define MAX_PROCS 1000
+#define MAX_PROCS 999999
 
 // Gestión de procesos (lista simple)
 int activeProcs[MAX_PROCS];
